@@ -1,0 +1,99 @@
+# MCP Server Setup
+
+Claude Code MCP 서버 설정을 여러 PC에서 동일하게 유지하기 위한 스크립트 모음입니다.
+
+## 파일 구조
+
+```
+mcpserver/
+├── generate-mcp-setup.js   # 현재 PC의 MCP 설정을 읽어 setup-mcp.sh 재생성
+└── setup-mcp.sh            # 다른 PC에서 실행하는 MCP 설치 스크립트
+```
+
+## 워크플로우
+
+```
+이 PC에서 새 MCP 서버 추가
+          ↓
+  claude mcp add [서버명] ...
+          ↓
+  node generate-mcp-setup.js   ← setup-mcp.sh 자동 업데이트
+          ↓
+       git push
+          ↓
+  다른 PC에서 git pull 후
+  bash setup-mcp.sh
+```
+
+---
+
+## 다른 PC에서 설치하기
+
+### 사전 요구사항
+
+- [Claude Code](https://claude.ai/code) 설치
+- Node.js 설치 (generate 스크립트 실행 시 필요)
+- Git 설치
+
+### 설치 방법
+
+```bash
+# 1. 저장소 clone
+git clone https://github.com/PRsH1/mcpserver.git
+cd mcpserver
+git checkout mcpserver
+
+# 2. 스크립트 실행
+bash setup-mcp.sh
+```
+
+실행 시 토큰이 필요한 서버(GitHub 등)는 대화형으로 입력을 요청합니다.
+입력 내용은 화면에 표시되지 않습니다.
+
+### 적용 범위(scope) 옵션
+
+| 명령어 | 설명 |
+|--------|------|
+| `bash setup-mcp.sh` | 현재 프로젝트에만 적용 (기본값) |
+| `SCOPE=user bash setup-mcp.sh` | 모든 프로젝트에 전역 적용 |
+
+---
+
+## 현재 등록된 MCP 서버
+
+| 서버 | 타입 | 인증 |
+|------|------|------|
+| context7 | HTTP | 불필요 |
+| notion | HTTP | 불필요 (Claude.ai 계정 연동) |
+| github | HTTP | GitHub Personal Access Token 필요 |
+| claude.ai Gmail | HTTP | Claude.ai 계정 연동 (자동 연결) |
+
+> **claude.ai Gmail** 은 Claude.ai 계정 OAuth로 연동됩니다.
+> Claude Code 실행 후 동일 계정으로 로그인하면 자동으로 연결됩니다.
+
+### GitHub Token 발급 방법
+
+1. [https://github.com/settings/tokens](https://github.com/settings/tokens) 접속
+2. **Generate new token (classic)** 클릭
+3. 필요 권한 체크: `repo`, `read:org`, `read:user`, `copilot`
+4. 생성된 토큰을 스크립트 실행 시 입력
+
+---
+
+## 새 MCP 서버 추가 후 동기화
+
+이 PC에서 새 서버를 추가했을 때:
+
+```bash
+# 1. Claude Code에 MCP 서버 추가
+claude mcp add [서버명] --transport http [URL]
+
+# 2. setup-mcp.sh 재생성
+cd C:/Users/Administrator/Workspace/mcpserver
+node generate-mcp-setup.js
+
+# 3. 변경사항 push
+git add setup-mcp.sh
+git commit -m "MCP 서버 추가: [서버명]"
+git push
+```

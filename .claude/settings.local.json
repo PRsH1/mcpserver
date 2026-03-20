@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(node:*)",
+      "Bash(claude mcp:*)",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}

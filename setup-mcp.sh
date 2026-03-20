@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP Server Setup Script
 # 자동 생성됨 - 업데이트: node generate-mcp-setup.js
-# 생성 시각: 2026. 3. 20. 오후 10:54:55
+# 생성 시각: 2026. 3. 21. 오전 12:25:28
 
 set -e
 

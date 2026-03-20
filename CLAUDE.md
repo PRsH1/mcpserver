@@ -38,6 +38,7 @@ mcpserver/
 - `claude mcp get`은 scope 옵션을 지원하지 않으므로, 출력 문자열에서 scope를 grep으로 판별
 - 토큰 값은 셸 스크립트에 하드코딩되지 않음 (환경변수 또는 대화형 입력)
 - OAuth 기반 서버(Gmail 등)는 스크립트로 등록하지 않음 — Claude Code 로그인 후 자동 연결
+- notion은 Claude.ai 계정 연동(OAuth) 버전을 제거하고 HTTP 직접 등록 방식(user scope)으로 운용 중
 
 ## 자주 쓰는 명령어
 

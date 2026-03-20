@@ -70,13 +70,15 @@ bash setup-mcp.sh
 | 서버 | 타입 | 인증 |
 |------|------|------|
 | context7 | HTTP | 불필요 |
-| notion | HTTP | 불필요 (Claude.ai 계정 연동) |
+| notion | HTTP | 불필요 (HTTP 직접 등록, Claude.ai 계정 연동 아님) |
 | github | HTTP | GitHub Personal Access Token 필요 |
 | chrome-devtools | stdio | 불필요 (npx로 자동 설치) |
 | claude.ai Gmail | HTTP | Claude.ai 계정 연동 (자동 연결) |
 
 > **claude.ai Gmail** 은 Claude.ai 계정 OAuth로 연동됩니다.
 > Claude Code 실행 후 동일 계정으로 로그인하면 자동으로 연결됩니다.
+
+> **notion** 은 Claude.ai 계정 연동(OAuth) 버전을 제거하고 `https://mcp.notion.com/mcp` 에 HTTP로 직접 등록한 상태입니다 (user scope).
 
 ### GitHub Token 발급 방법
 

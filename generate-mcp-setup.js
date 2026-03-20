@@ -20,11 +20,17 @@ if (!fs.existsSync(claudeJson)) {
 
 // ── MCP 서버 목록 추출 ───────────────────────────────────────────────────────
 const data = JSON.parse(fs.readFileSync(claudeJson, 'utf8'));
-const projects = data.projects || {};
 
-// 모든 프로젝트의 mcpServers 를 합산 (같은 이름이면 나중 것으로 덮어씀)
+// 루트 레벨(user scope) + 프로젝트별 mcpServers 를 합산 (같은 이름이면 나중 것으로 덮어씀)
 const merged = {};
-for (const proj of Object.values(projects)) {
+
+// 1) 루트 레벨 mcpServers (user scope)
+for (const [name, cfg] of Object.entries(data.mcpServers || {})) {
+  merged[name] = JSON.parse(JSON.stringify(cfg));
+}
+
+// 2) 프로젝트별 mcpServers (project scope)
+for (const proj of Object.values(data.projects || {})) {
   for (const [name, cfg] of Object.entries(proj.mcpServers || {})) {
     merged[name] = JSON.parse(JSON.stringify(cfg)); // deep copy
   }
@@ -84,11 +90,12 @@ lines.push('info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user b
 lines.push('');
 lines.push('add_mcp() {');
 lines.push('  local name="$1"; shift');
-lines.push('  if claude mcp get "$name" &>/dev/null; then');
-lines.push('    warn "이미 존재합니다. 건너뜀: $name"');
-lines.push('  else');
-lines.push('    claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"');
+lines.push('  # 지정한 SCOPE에 이미 존재하면 삭제 후 재등록 (설정 업데이트 보장)');
+lines.push('  if claude mcp get "$name" 2>/dev/null | grep -qi "scope.*${SCOPE}"; then');
+lines.push('    claude mcp remove "$name" -s "$SCOPE" &>/dev/null');
+lines.push('    info "기존 설정 제거: $name (${SCOPE})"');
 lines.push('  fi');
+lines.push('  claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"');
 lines.push('}');
 lines.push('');
 lines.push('info "MCP 서버 추가를 시작합니다..."');

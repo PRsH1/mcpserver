@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP Server Setup Script
 # 자동 생성됨 - 업데이트: node generate-mcp-setup.js
-# 생성 시각: 2026. 3. 18. 오후 5:34:24
+# 생성 시각: 2026. 3. 20. 오후 10:54:55
 
 set -e
 
@@ -24,11 +24,12 @@ info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user bash setup-mc
 
 add_mcp() {
   local name="$1"; shift
-  if claude mcp get "$name" &>/dev/null; then
-    warn "이미 존재합니다. 건너뜀: $name"
-  else
-    claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"
+  # 지정한 SCOPE에 이미 존재하면 삭제 후 재등록 (설정 업데이트 보장)
+  if claude mcp get "$name" 2>/dev/null | grep -qi "scope.*${SCOPE}"; then
+    claude mcp remove "$name" -s "$SCOPE" &>/dev/null
+    info "기존 설정 제거: $name (${SCOPE})"
   fi
+  claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"
 }
 
 info "MCP 서버 추가를 시작합니다..."
@@ -48,6 +49,10 @@ add_mcp "github" "github" \
   --transport http \
   "https://api.githubcopilot.com/mcp/" \
   --header "Authorization: Bearer ${GITHUB_TOKEN}"
+
+# ── chrome-devtools
+add_mcp "chrome-devtools" "chrome-devtools" \
+  "npx" "chrome-devtools-mcp@latest"
 
 echo ""
 info "설치된 MCP 서버 목록:"

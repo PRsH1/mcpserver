@@ -78,26 +78,88 @@ lines.push('error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }');
 lines.push('');
 lines.push('command -v git &>/dev/null || error "git이 설치되어 있지 않습니다."');
 lines.push('');
+
+// ── 선택 가능한 스킬 목록 (배열) ─────────────────────────────────────────────
+lines.push(`ALL_SKILLS=(${skills.map(s => `"${s.name}"`).join(' ')})`);
+lines.push('');
+
+// ── 스킬 목록 출력 + 선택 UI ─────────────────────────────────────────────────
+lines.push('echo ""');
+lines.push('echo "사용 가능한 Skills:"');
+skills.forEach(({ name, remoteUrl, hasSetup }, i) => {
+  const setupMark = hasSetup ? ' (setup 있음)' : '';
+  const shortUrl = remoteUrl.replace('https://github.com/', 'github:');
+  const label = `[${i + 1}] ${name}`;
+  lines.push(`echo "  ${label.padEnd(20)} ${shortUrl}${setupMark}"`);
+});
+lines.push('echo ""');
+lines.push('');
+
+lines.push('# 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택');
+lines.push('if [ $# -gt 0 ]; then');
+lines.push('  if [ "$1" = "all" ]; then');
+lines.push('    INSTALL_LIST=("${ALL_SKILLS[@]}")');
+lines.push('  else');
+lines.push('    INSTALL_LIST=("$@")');
+lines.push('  fi');
+lines.push('else');
+lines.push('  echo "설치할 스킬을 선택하세요 (번호·이름 공백 구분, all=전체, Enter=전체)"');
+lines.push('  read -rp "> " RAW_INPUT');
+lines.push('  if [ -z "$RAW_INPUT" ] || [ "$RAW_INPUT" = "all" ]; then');
+lines.push('    INSTALL_LIST=("${ALL_SKILLS[@]}")');
+lines.push('  else');
+lines.push('    INSTALL_LIST=()');
+lines.push('    for item in $RAW_INPUT; do');
+lines.push('      if [[ "$item" =~ ^[0-9]+$ ]]; then');
+lines.push('        idx=$((item - 1))');
+lines.push('        [ "$idx" -ge 0 ] && [ "$idx" -lt "${#ALL_SKILLS[@]}" ] \\');
+lines.push('          && INSTALL_LIST+=("${ALL_SKILLS[$idx]}")');
+lines.push('      else');
+lines.push('        INSTALL_LIST+=("$item")');
+lines.push('      fi');
+lines.push('    done');
+lines.push('  fi');
+lines.push('fi');
+lines.push('');
+
+lines.push('[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "설치할 스킬이 선택되지 않았습니다."');
+lines.push('info "설치 대상: ${INSTALL_LIST[*]}"');
+lines.push('echo ""');
+lines.push('');
+
+// ── should_install 헬퍼 ───────────────────────────────────────────────────────
+lines.push('should_install() {');
+lines.push('  local name="$1"');
+lines.push('  for item in "${INSTALL_LIST[@]}"; do');
+lines.push('    [ "$item" = "$name" ] && return 0');
+lines.push('  done');
+lines.push('  return 1');
+lines.push('}');
+lines.push('');
+
 lines.push('SKILLS_DIR="$HOME/.claude/skills"');
 lines.push('mkdir -p "$SKILLS_DIR"');
 lines.push('info "Skills 설치를 시작합니다..."');
 lines.push('');
 
+// ── 스킬별 설치 (should_install 조건부) ──────────────────────────────────────
 for (const { name, remoteUrl, hasSetup } of skills) {
   lines.push(`# ── ${name}`);
-  lines.push(`SKILL_DIR="$SKILLS_DIR/${name}"`);
-  lines.push(`if [ -d "$SKILL_DIR/.git" ]; then`);
-  lines.push(`  info "${name}: 이미 설치됨 → 최신 버전으로 업데이트 중..."`);
-  lines.push(`  git -C "$SKILL_DIR" pull --rebase --autostash 2>/dev/null \\`);
-  lines.push(`    || warn "${name}: git pull 실패 (기존 버전 유지)"`);
-  lines.push(`else`);
-  lines.push(`  info "${name}: 클론 중... (${remoteUrl})"`);
-  lines.push(`  git clone --single-branch --depth 1 "${remoteUrl}" "$SKILL_DIR"`);
-  lines.push(`fi`);
+  lines.push(`if should_install "${name}"; then`);
+  lines.push(`  SKILL_DIR="$SKILLS_DIR/${name}"`);
+  lines.push(`  if [ -d "$SKILL_DIR/.git" ]; then`);
+  lines.push(`    info "${name}: 이미 설치됨 → 최신 버전으로 업데이트 중..."`);
+  lines.push(`    git -C "$SKILL_DIR" pull --rebase --autostash 2>/dev/null \\`);
+  lines.push(`      || warn "${name}: git pull 실패 (기존 버전 유지)"`);
+  lines.push(`  else`);
+  lines.push(`    info "${name}: 클론 중... (${remoteUrl})"`);
+  lines.push(`    git clone --single-branch --depth 1 "${remoteUrl}" "$SKILL_DIR"`);
+  lines.push(`  fi`);
   if (hasSetup) {
-    lines.push(`info "${name}: setup 실행 중..."`);
-    lines.push(`(cd "$SKILL_DIR" && ./setup) || error "${name} setup 실패"`);
+    lines.push(`  info "${name}: setup 실행 중..."`);
+    lines.push(`  (cd "$SKILL_DIR" && ./setup) || error "${name} setup 실패"`);
   }
+  lines.push('fi');
   lines.push('');
 }
 

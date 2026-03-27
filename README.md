@@ -1,6 +1,6 @@
 # MCP Server Setup
 
-Claude Code MCP 서버 설정을 여러 PC에서 동일하게 유지하기 위한 스크립트 모음입니다.
+Claude Code MCP 서버 설정과 Skills를 여러 PC에서 동일하게 유지하기 위한 스크립트 모음입니다.
 
 ## 파일 구조
 
@@ -12,7 +12,9 @@ mcpserver/
 └── setup-skills.sh          # 다른 PC에서 실행하는 Skills 설치 스크립트 (자동 생성)
 ```
 
-## MCP 서버 워크플로우
+## 워크플로우
+
+### MCP 서버
 
 ```
 이 PC에서 새 MCP 서버 추가
@@ -27,7 +29,7 @@ mcpserver/
   bash setup-mcp.sh
 ```
 
-## Skills 워크플로우
+### Skills
 
 ```
 이 PC에서 새 Skill 설치
@@ -53,40 +55,80 @@ mcpserver/
 - Git 설치
 - [Bun](https://bun.sh/) 설치 (gstack 등 일부 스킬에 필요)
 
-### MCP 서버 설치
+### 저장소 clone
 
 ```bash
-# 1. 저장소 clone
 git clone https://github.com/PRsH1/mcpserver.git
 cd mcpserver
 git checkout mcpserver
+```
 
-# 2. MCP 서버 설치
+### MCP 서버 설치
+
+```bash
 bash setup-mcp.sh
 ```
+
+실행하면 설치할 서버를 선택할 수 있습니다.
+
+```
+사용 가능한 MCP 서버:
+  [1] context7             HTTP
+  [2] notion               HTTP
+  [3] github               HTTP  (토큰 필요)
+  [4] chrome-devtools      stdio
+
+설치할 서버를 선택하세요 (번호·이름 공백 구분, all=전체, Enter=전체)
+> 1 3
+```
+
+| 실행 방법 | 설명 |
+|-----------|------|
+| `bash setup-mcp.sh` | 대화형 선택 (번호·이름 입력 또는 Enter=전체) |
+| `bash setup-mcp.sh all` | 전체 설치 |
+| `bash setup-mcp.sh context7 github` | 이름으로 직접 지정 |
+| `bash setup-mcp.sh 1 3` | 번호로 직접 지정 |
+| `SCOPE=user bash setup-mcp.sh` | user scope로 전역 설치 |
+
+토큰이 필요한 서버(GitHub 등)는 해당 서버를 선택했을 때만 입력을 요청합니다.
+입력 내용은 화면에 표시되지 않습니다.
 
 ### Skills 설치
 
 ```bash
-# (저장소 clone 후)
 bash setup-skills.sh
 ```
 
-실행 시 토큰이 필요한 서버(GitHub 등)는 대화형으로 입력을 요청합니다.
-입력 내용은 화면에 표시되지 않습니다.
+MCP와 동일한 방식으로 선택할 수 있습니다.
 
-### 적용 범위(scope) 옵션
+```
+사용 가능한 Skills:
+  [1] gstack               github:garrytan/gstack.git (setup 있음)
+
+설치할 스킬을 선택하세요 (번호·이름 공백 구분, all=전체, Enter=전체)
+> 1
+```
+
+| 실행 방법 | 설명 |
+|-----------|------|
+| `bash setup-skills.sh` | 대화형 선택 |
+| `bash setup-skills.sh all` | 전체 설치 |
+| `bash setup-skills.sh gstack` | 이름으로 직접 지정 |
+
+이미 설치된 스킬은 `git pull --rebase`로 업데이트합니다.
+
+### 적용 범위(scope) 옵션 — MCP 전용
 
 | 명령어 | 설명 |
 |--------|------|
-| `bash setup-mcp.sh` | 현재 프로젝트에만 적용 (기본값) |
+| `bash setup-mcp.sh` | 현재 프로젝트에만 적용 (기본값: local) |
 | `SCOPE=user bash setup-mcp.sh` | 모든 프로젝트에 전역 적용 |
 
 ### 중복 실행 시 동작
 
-- 지정한 scope에 이미 같은 서버가 있으면 **삭제 후 재등록**합니다 (설정 업데이트 보장).
-- 다른 scope에만 존재하는 경우 충돌 없이 추가됩니다.
-- 따라서 설정이 변경된 후 **반복 실행해도 안전**합니다.
+- **MCP**: 지정한 scope에 이미 같은 서버가 있으면 삭제 후 재등록 (설정 업데이트 보장)
+- **Skills**: 이미 설치된 경우 `git pull --rebase`로 업데이트
+- 반복 실행해도 안전합니다.
 
 ---
 
@@ -114,9 +156,18 @@ bash setup-skills.sh
 
 ---
 
-## 새 MCP 서버 추가 후 동기화
+## 현재 등록된 Skills
 
-이 PC에서 새 서버를 추가했을 때:
+| 스킬 | 저장소 | setup 필요 |
+|------|--------|-----------|
+| gstack | https://github.com/garrytan/gstack.git | O (bun 필요) |
+
+> **감지 방식**: `~/.claude/skills/` 아래 `.git` 디렉토리가 있는 폴더만 루트 스킬로 인식합니다.
+> 부모 스킬이 자동 생성한 서브스킬 디렉토리(예: `gstack-*`)는 자동으로 제외됩니다.
+
+---
+
+## 새 MCP 서버 추가 후 동기화
 
 ```bash
 # 1. Claude Code에 MCP 서버 추가
@@ -131,11 +182,7 @@ git commit -m "MCP 서버 추가: [서버명]"
 git push
 ```
 
----
-
 ## 새 Skill 추가 후 동기화
-
-이 PC에서 새 Skill을 설치했을 때:
 
 ```bash
 # 1. Skill 설치 (git clone 방식)
@@ -150,17 +197,6 @@ git add setup-skills.sh
 git commit -m "Skills 추가: [스킬명]"
 git push
 ```
-
-> **감지 방식**: `~/.claude/skills/` 아래 `.git` 디렉토리가 있는 폴더만 루트 스킬로 인식합니다.
-> 부모 스킬이 자동 생성한 서브스킬 디렉토리는 자동으로 제외됩니다.
-
----
-
-## 현재 등록된 Skills
-
-| 스킬 | 저장소 | setup 필요 |
-|------|--------|-----------|
-| gstack | https://github.com/garrytan/gstack.git | O (bun 필요) |
 
 ---
 

@@ -56,12 +56,23 @@ for (const [name, cfg] of Object.entries(merged)) {
   }
 }
 
+// ── 서버별 표시 정보 준비 ────────────────────────────────────────────────────
+// 번호 정렬용 배열
+const serverNames = Object.keys(merged);
+
+// 각 서버의 표시용 메타 정보
+function serverMeta(name, cfg) {
+  const type = (cfg.type === 'http' || cfg.url) ? 'HTTP ' : `stdio`;
+  const auth = tokenVars[name] ? ' (토큰 필요)' : '';
+  return `${type}${auth}`;
+}
+
 // ── setup-mcp.sh 내용 생성 ──────────────────────────────────────────────────
 const lines = [];
 
 lines.push('#!/usr/bin/env bash');
-lines.push(`# MCP Server Setup Script`);
-lines.push(`# 자동 생성됨 - 업데이트: node generate-mcp-setup.js`);
+lines.push('# MCP Server Setup Script');
+lines.push('# 자동 생성됨 - 업데이트: node generate-mcp-setup.js');
 lines.push(`# 생성 시각: ${new Date().toLocaleString('ko-KR')}`);
 lines.push('');
 lines.push('set -e');
@@ -75,19 +86,81 @@ lines.push('command -v claude &>/dev/null || error "claude CLI가 설치되어 �
 lines.push(`info "Claude Code 버전: $(claude --version 2>/dev/null || echo '확인 불가')"`);
 lines.push('');
 
-// 토큰 입력 프롬프트 (Authorization Bearer 가 있는 서버만)
+// ── 선택 가능한 서버 목록 (배열) ─────────────────────────────────────────────
+lines.push(`ALL_SERVERS=(${serverNames.map(n => `"${n}"`).join(' ')})`);
+lines.push('');
+
+// ── 서버 목록 출력 + 선택 UI ─────────────────────────────────────────────────
+lines.push('echo ""');
+lines.push('echo "사용 가능한 MCP 서버:"');
+serverNames.forEach((name, i) => {
+  const meta = serverMeta(name, merged[name]);
+  const label = `[${i + 1}] ${name}`;
+  lines.push(`echo "  ${label.padEnd(24)} ${meta}"`);
+});
+lines.push('echo ""');
+lines.push('');
+
+lines.push('# 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택');
+lines.push('if [ $# -gt 0 ]; then');
+lines.push('  if [ "$1" = "all" ]; then');
+lines.push('    INSTALL_LIST=("${ALL_SERVERS[@]}")');
+lines.push('  else');
+lines.push('    INSTALL_LIST=("$@")');
+lines.push('  fi');
+lines.push('else');
+lines.push(`  echo "설치할 서버를 선택하세요 (번호·이름 공백 구분, all=전체, Enter=전체)"`);
+lines.push('  read -rp "> " RAW_INPUT');
+lines.push('  if [ -z "$RAW_INPUT" ] || [ "$RAW_INPUT" = "all" ]; then');
+lines.push('    INSTALL_LIST=("${ALL_SERVERS[@]}")');
+lines.push('  else');
+lines.push('    INSTALL_LIST=()');
+lines.push('    for item in $RAW_INPUT; do');
+lines.push('      if [[ "$item" =~ ^[0-9]+$ ]]; then');
+lines.push('        idx=$((item - 1))');
+lines.push('        [ "$idx" -ge 0 ] && [ "$idx" -lt "${#ALL_SERVERS[@]}" ] \\');
+lines.push('          && INSTALL_LIST+=("${ALL_SERVERS[$idx]}")');
+lines.push('      else');
+lines.push('        INSTALL_LIST+=("$item")');
+lines.push('      fi');
+lines.push('    done');
+lines.push('  fi');
+lines.push('fi');
+lines.push('');
+
+lines.push('[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "설치할 서버가 선택되지 않았습니다."');
+lines.push('info "설치 대상: ${INSTALL_LIST[*]}"');
+lines.push('echo ""');
+lines.push('');
+
+// ── should_install 헬퍼 ───────────────────────────────────────────────────────
+lines.push('should_install() {');
+lines.push('  local name="$1"');
+lines.push('  for item in "${INSTALL_LIST[@]}"; do');
+lines.push('    [ "$item" = "$name" ] && return 0');
+lines.push('  done');
+lines.push('  return 1');
+lines.push('}');
+lines.push('');
+
+// ── 토큰 입력 (선택된 서버에만) ──────────────────────────────────────────────
 for (const [name, varName] of Object.entries(tokenVars)) {
-  lines.push(`# ── ${name} 토큰 입력`);
-  lines.push(`if [ -z "\${${varName}}" ]; then`);
-  lines.push(`  read -rsp "${name} Token 입력 (화면에 표시 안 됨): " ${varName}; echo ""`);
+  lines.push(`# ── ${name} 토큰 입력 (선택된 경우에만)`);
+  lines.push(`if should_install "${name}"; then`);
+  lines.push(`  if [ -z "\${${varName}}" ]; then`);
+  lines.push(`    read -rsp "${name} Token 입력 (화면에 표시 안 됨): " ${varName}; echo ""`);
+  lines.push(`  fi`);
+  lines.push(`  [ -z "\${${varName}}" ] && error "${name} Token이 입력되지 않았습니다."`);
   lines.push(`fi`);
-  lines.push(`[ -z "\${${varName}}" ] && error "${name} Token이 입력되지 않았습니다."`);
   lines.push('');
 }
 
+// ── SCOPE 설정 ───────────────────────────────────────────────────────────────
 lines.push('SCOPE="${SCOPE:-local}"');
 lines.push('info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user bash setup-mcp.sh)"');
 lines.push('');
+
+// ── add_mcp 헬퍼 ─────────────────────────────────────────────────────────────
 lines.push('add_mcp() {');
 lines.push('  local name="$1"; shift');
 lines.push('  # 지정한 SCOPE에 이미 존재하면 삭제 후 재등록 (설정 업데이트 보장)');
@@ -98,10 +171,11 @@ lines.push('  fi');
 lines.push('  claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"');
 lines.push('}');
 lines.push('');
+
 lines.push('info "MCP 서버 추가를 시작합니다..."');
 lines.push('');
 
-// 서버별 add_mcp 명령 생성
+// ── 서버별 add_mcp 명령 생성 (should_install 조건부) ─────────────────────────
 for (const [name, cfg] of Object.entries(merged)) {
   lines.push(`# ── ${name}`);
 
@@ -111,7 +185,6 @@ for (const [name, cfg] of Object.entries(merged)) {
     args.push('--transport http');
     args.push(`"${cfg.url}"`);
   } else if (cfg.command) {
-    // stdio 타입
     const cmdArgs = (cfg.args || []).map(a => `"${a}"`).join(' ');
     args.push(`"${cfg.command}" ${cmdArgs}`.trim());
   }
@@ -127,8 +200,7 @@ for (const [name, cfg] of Object.entries(merged)) {
     }
   }
 
-  // 인자가 길면 백슬래시로 줄바꿈
-  lines.push(args.join(' \\\n  '));
+  lines.push(`should_install "${name}" && ${args.join(' \\\n  ')}`);
   lines.push('');
 }
 
@@ -142,7 +214,6 @@ lines.push('info "완료! claude.ai Gmail 등 OAuth 서버는 Claude Code 로그
 const outputPath = path.join(__dirname, 'setup-mcp.sh');
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 
-// Unix 실행 권한 부여 (Windows 에서는 무시됨)
 try { fs.chmodSync(outputPath, 0o755); } catch (_) {}
 
 console.log(`[INFO] setup-mcp.sh 재생성 완료: ${outputPath}`);

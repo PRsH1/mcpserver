@@ -67,12 +67,23 @@ node generate-mcp-setup.js
 # setup-skills.sh 재생성
 node generate-skills-setup.js
 
-# 타 PC에서 MCP 설치 (프로젝트 scope)
+# 타 PC에서 MCP 설치 — 대화형 선택
 bash setup-mcp.sh
+
+# 타 PC에서 MCP 설치 — 전체 설치
+bash setup-mcp.sh all
+
+# 타 PC에서 MCP 설치 — 특정 서버만 (이름 또는 번호)
+bash setup-mcp.sh context7 github
+bash setup-mcp.sh 1 3
 
 # 타 PC에서 MCP 설치 (user scope - 전역)
 SCOPE=user bash setup-mcp.sh
 
-# 타 PC에서 Skills 설치
+# 타 PC에서 Skills 설치 — 대화형 선택
 bash setup-skills.sh
+
+# 타 PC에서 Skills 설치 — 전체 / 특정 스킬만
+bash setup-skills.sh all
+bash setup-skills.sh gstack
 ```

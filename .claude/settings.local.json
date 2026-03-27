@@ -10,7 +10,9 @@
       "Bash(claude skill:*)",
       "Bash(claude plugins:*)",
       "Bash(python3 -m json.tool)",
-      "Bash(ls -1 /d/Workspace/mcpserver/*.js /d/Workspace/mcpserver/*.sh /d/Workspace/mcpserver/*.md)"
+      "Bash(ls -1 /d/Workspace/mcpserver/*.js /d/Workspace/mcpserver/*.sh /d/Workspace/mcpserver/*.md)",
+      "Bash(bash -n setup-mcp.sh)",
+      "Bash(bash -n setup-skills.sh)"
     ]
   }
 }

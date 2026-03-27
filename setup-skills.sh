@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Skills Setup Script
 # 자동 생성됨 - 업데이트: node generate-skills-setup.js
-# 생성 시각: 2026. 3. 28. 오전 1:21:51
+# 생성 시각: 2026. 3. 28. 오전 1:39:44
 
 set -e
 
@@ -77,5 +77,5 @@ if should_install "gstack"; then
 fi
 
 echo ""
-info "설치 완료! 설치된 Skills:"
-ls "$SKILLS_DIR"
+info "설치 완료! 설치된 Skills (루트 스킬만):"
+for d in "$SKILLS_DIR"/*/; do [ -d "$d/.git" ] && echo "  $(basename "$d")"; done

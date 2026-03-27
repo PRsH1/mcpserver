@@ -20,19 +20,23 @@ mcpserver/
 
 ### generate-mcp-setup.js
 
-1. `~/.claude.json` 파일 읽기
+1. `~/.claude.json` 파일 읽기 (파싱 실패 시 친화적 에러 출력 후 종료)
 2. 루트 레벨 `mcpServers` (user scope) + `projects[*].mcpServers` (project scope) 합산
    - 같은 이름이면 project scope가 user scope를 덮어씀
-3. Authorization Bearer 토큰이 포함된 서버는 환경변수(`{NAME}_TOKEN`)로 치환하여 토큰 노출 방지
-4. `setup-mcp.sh` 파일 생성
+   - 여러 프로젝트에 같은 이름이 있으면 `Object.values()` 순서(삽입 순서)의 나중 것이 우선
+3. `Authorization` 헤더에 Bearer 토큰이 있는 서버는 환경변수(`{NAME}_TOKEN`)로 치환하여 토큰 노출 방지
+   - 헤더 키가 `Authorization`인 경우에만 치환 대상으로 판별
+4. URL, 커맨드, 인자, 헤더값에 포함된 특수문자(`"`, `$`, `` ` ``, `\`)를 `shellEscape()`로 이스케이프하여 셸 스크립트 injection 방지
+5. `setup-mcp.sh` 파일 생성
 
 ### setup-mcp.sh (자동 생성됨)
 
-1. 토큰이 필요한 서버(github 등)는 대화형으로 입력받음
-2. `add_mcp()` 함수로 서버 등록:
+1. `SCOPE` 환경변수 검증: `local`, `user`, `project` 외의 값이면 즉시 에러 출력 후 종료
+2. 토큰이 필요한 서버(github 등)는 대화형으로 입력받음
+3. `add_mcp()` 함수로 서버 등록:
    - 지정한 SCOPE에 이미 존재하면 → remove 후 재등록 (설정 업데이트 보장)
    - 다른 scope에만 존재하면 → 그대로 추가
-3. HTTP 서버는 `--transport http`, stdio 서버는 command + args 방식으로 추가
+4. HTTP 서버는 `--transport http`, stdio 서버는 command + args 방식으로 추가
 
 ### generate-skills-setup.js
 

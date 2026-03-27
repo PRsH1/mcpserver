@@ -11,6 +11,15 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// ── 셸 double-quote 안에서 특수문자 이스케이프 ──────────────────────────────
+function shellEscape(val) {
+  return String(val)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, '\\$')
+    .replace(/`/g, '\\`');
+}
+
 // ── .claude.json 위치 ────────────────────────────────────────────────────────
 const claudeJson = path.join(os.homedir(), '.claude.json');
 if (!fs.existsSync(claudeJson)) {
@@ -19,7 +28,13 @@ if (!fs.existsSync(claudeJson)) {
 }
 
 // ── MCP 서버 목록 추출 ───────────────────────────────────────────────────────
-const data = JSON.parse(fs.readFileSync(claudeJson, 'utf8'));
+let data;
+try {
+  data = JSON.parse(fs.readFileSync(claudeJson, 'utf8'));
+} catch (e) {
+  console.error(`[ERROR] .claude.json 파싱 실패: ${e.message}`);
+  process.exit(1);
+}
 
 // 루트 레벨(user scope) + 프로젝트별 mcpServers 를 합산 (같은 이름이면 나중 것으로 덮어씀)
 const merged = {};
@@ -49,7 +64,7 @@ const tokenVars = {};
 for (const [name, cfg] of Object.entries(merged)) {
   if (!cfg.headers) continue;
   for (const [hk, hv] of Object.entries(cfg.headers)) {
-    if (/^bearer\s+\S+/i.test(hv)) {
+    if (/^authorization$/i.test(hk) && /^bearer\s+\S+/i.test(hv)) {
       const varName = name.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_TOKEN';
       tokenVars[name] = varName;
     }
@@ -157,6 +172,7 @@ for (const [name, varName] of Object.entries(tokenVars)) {
 
 // ── SCOPE 설정 ───────────────────────────────────────────────────────────────
 lines.push('SCOPE="${SCOPE:-local}"');
+lines.push('[[ "$SCOPE" =~ ^(local|user|project)$ ]] || error "SCOPE는 local, user, project 중 하나여야 합니다."');
 lines.push('info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user bash setup-mcp.sh)"');
 lines.push('');
 
@@ -183,19 +199,19 @@ for (const [name, cfg] of Object.entries(merged)) {
 
   if (cfg.type === 'http' || cfg.url) {
     args.push('--transport http');
-    args.push(`"${cfg.url}"`);
+    args.push(`"${shellEscape(cfg.url)}"`);
   } else if (cfg.command) {
-    const cmdArgs = (cfg.args || []).map(a => `"${a}"`).join(' ');
-    args.push(`"${cfg.command}" ${cmdArgs}`.trim());
+    const cmdArgs = (cfg.args || []).map(a => `"${shellEscape(a)}"`).join(' ');
+    args.push(`"${shellEscape(cfg.command)}" ${cmdArgs}`.trim());
   }
 
   if (cfg.headers) {
     for (const [hk, hv] of Object.entries(cfg.headers)) {
       const varName = tokenVars[name];
       if (varName) {
-        args.push(`--header "${hk}: Bearer \${${varName}}"`);
+        args.push(`--header "${shellEscape(hk)}: Bearer \${${varName}}"`);
       } else {
-        args.push(`--header "${hk}: ${hv}"`);
+        args.push(`--header "${shellEscape(hk)}: ${shellEscape(hv)}"`);
       }
     }
   }

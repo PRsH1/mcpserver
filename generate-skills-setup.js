@@ -164,8 +164,8 @@ for (const { name, remoteUrl, hasSetup } of skills) {
 }
 
 lines.push('echo ""');
-lines.push('info "설치 완료! 설치된 Skills:"');
-lines.push('ls "$SKILLS_DIR"');
+lines.push('info "설치 완료! 설치된 Skills (루트 스킬만):"');
+lines.push('for d in "$SKILLS_DIR"/*/; do [ -d "$d/.git" ] && echo "  $(basename "$d")"; done');
 
 // ── 파일 저장 ────────────────────────────────────────────────────────────────
 const outputPath = path.join(__dirname, 'setup-skills.sh');

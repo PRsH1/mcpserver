@@ -123,6 +123,9 @@ MCP와 동일한 방식으로 선택할 수 있습니다.
 |--------|------|
 | `bash setup-mcp.sh` | 현재 프로젝트에만 적용 (기본값: local) |
 | `SCOPE=user bash setup-mcp.sh` | 모든 프로젝트에 전역 적용 |
+| `SCOPE=project bash setup-mcp.sh` | 현재 프로젝트에 적용 (local과 동일) |
+
+유효한 SCOPE 값은 `local`, `user`, `project` 세 가지입니다. 그 외 값을 지정하면 즉시 에러가 출력됩니다.
 
 ### 중복 실행 시 동작
 
@@ -204,4 +207,5 @@ git push
 
 - `~/.claude.json`에서 루트 레벨 `mcpServers` (user scope)와 `projects[*].mcpServers` (project scope)를 모두 읽어 합산
 - 같은 이름의 서버가 양쪽에 있으면 project scope 설정이 우선
-- Authorization Bearer 토큰은 환경변수(`{NAME}_TOKEN`)로 치환하여 스크립트에 토큰이 노출되지 않도록 처리
+- `Authorization` 헤더에 Bearer 토큰이 있는 서버는 환경변수(`{NAME}_TOKEN`)로 치환하여 스크립트에 토큰이 노출되지 않도록 처리
+- URL, 커맨드, 인자 등 설정값에 포함된 특수문자(`"`, `$`, `` ` ``, `\`)는 자동으로 이스케이프되어 셸 스크립트에 안전하게 삽입됨

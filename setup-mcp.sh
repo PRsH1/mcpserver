@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP Server Setup Script
 # 자동 생성됨 - 업데이트: node generate-mcp-setup.js
-# 생성 시각: 2026. 3. 28. 오전 1:21:51
+# 생성 시각: 2026. 3. 28. 오전 1:39:44
 
 set -e
 
@@ -70,6 +70,7 @@ if should_install "github"; then
 fi
 
 SCOPE="${SCOPE:-local}"
+[[ "$SCOPE" =~ ^(local|user|project)$ ]] || error "SCOPE는 local, user, project 중 하나여야 합니다."
 info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user bash setup-mcp.sh)"
 
 add_mcp() {

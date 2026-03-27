@@ -4,7 +4,13 @@
       "Bash(git:*)",
       "Bash(node:*)",
       "Bash(claude mcp:*)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Read(//c/Users/LSH/.claude/**)",
+      "Bash(claude skills:*)",
+      "Bash(claude skill:*)",
+      "Bash(claude plugins:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(ls -1 /d/Workspace/mcpserver/*.js /d/Workspace/mcpserver/*.sh /d/Workspace/mcpserver/*.md)"
     ]
   }
 }

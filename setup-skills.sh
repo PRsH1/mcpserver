@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Skills Setup Script
 # 자동 생성됨 - 업데이트: node generate-skills-setup.js
-# 생성 시각: 2026. 4. 7. 오전 12:01:38
+# 생성 시각: 2026. 4. 7. 오전 12:08:18
 
 set -e
 
@@ -12,12 +12,11 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 command -v git &>/dev/null || error "git이 설치되어 있지 않습니다."
 
-ALL_SKILLS=(".gstack-backup-1774707637" "gstack")
+ALL_SKILLS=("gstack")
 
 echo ""
 echo "사용 가능한 Skills:"
-echo "  [1] .gstack-backup-1774707637 github:garrytan/gstack.git (setup 있음)"
-echo "  [2] gstack           github:garrytan/gstack.git (setup 있음)"
+echo "  [1] gstack           github:garrytan/gstack.git (setup 있음)"
 echo ""
 
 # 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택
@@ -72,26 +71,6 @@ mkdir -p "$SKILLS_DIR"
 
 FAILED=()
 info "Skills 설치를 시작합니다..."
-
-# ── .gstack-backup-1774707637
-if should_install ".gstack-backup-1774707637"; then
-  SKILL_DIR="$SKILLS_DIR/.gstack-backup-1774707637"
-  _skill_ok=true
-  if [ -d "$SKILL_DIR/.git" ]; then
-    info ".gstack-backup-1774707637: 이미 설치됨 → 최신 버전으로 업데이트 중..."
-    git -C "$SKILL_DIR" pull --rebase --autostash 2>/dev/null \
-      || warn ".gstack-backup-1774707637: git pull 실패 (기존 버전 유지)"
-  else
-    info ".gstack-backup-1774707637: 클론 중... (https://github.com/garrytan/gstack.git)"
-    git clone --single-branch --depth 1 "https://github.com/garrytan/gstack.git" "$SKILL_DIR" \
-      || { warn ".gstack-backup-1774707637: git clone 실패"; _skill_ok=false; FAILED+=(".gstack-backup-1774707637"); }
-  fi
-  if $_skill_ok; then
-    info ".gstack-backup-1774707637: setup 실행 중..."
-    (cd "$SKILL_DIR" && ./setup) \
-      || { warn ".gstack-backup-1774707637: setup 실패"; FAILED+=(".gstack-backup-1774707637"); }
-  fi
-fi
 
 # ── gstack
 if should_install "gstack"; then

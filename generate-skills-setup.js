@@ -31,6 +31,12 @@ for (const name of entries) {
   const fullPath = path.join(skillsDir, name);
   if (!fs.statSync(fullPath).isDirectory()) continue;
 
+  // 숨김 디렉토리(백업, 임시 등) skip — 예: .gstack-backup-*, .tmp-*
+  if (name.startsWith('.')) {
+    console.log(`[INFO] ${name}: 숨김 디렉토리 (skip)`);
+    continue;
+  }
+
   const gitDir = path.join(fullPath, '.git');
   if (!fs.existsSync(gitDir)) {
     // .git 없음 → 서브스킬이므로 skip

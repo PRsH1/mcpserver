@@ -93,13 +93,25 @@ for (const [name, cfg] of Object.entries(merged)) {
   }
 }
 
+// ── stdio 서버의 env var를 환경변수로 치환 ──────────────────────────────────
+// env var 매핑: { serverName -> { KEY: KEY } } (키 이름 그대로 사용)
+const envVars = {};
+for (const [name, cfg] of Object.entries(merged)) {
+  if (!cfg.env || typeof cfg.env !== 'object') continue;
+  for (const key of Object.keys(cfg.env)) {
+    if (!envVars[name]) envVars[name] = {};
+    envVars[name][key] = key;
+  }
+}
+
 // ── 서버별 표시 정보 준비 ────────────────────────────────────────────────────
 const serverNames = Object.keys(merged);
 
 function serverMeta(name, cfg) {
   const type = (cfg.type === 'http' || cfg.url) ? 'HTTP ' : 'stdio';
   const scope = originalScope[name] === 'project' ? '[project]' : '[user]  ';
-  const auth = tokenVars[name] ? ' (토큰 필요)' : '';
+  const hasSecret = tokenVars[name] || (envVars[name] && Object.keys(envVars[name]).length > 0);
+  const auth = hasSecret ? ' (키 필요)' : '';
   return `${type} ${scope}${auth}`;
 }
 
@@ -202,6 +214,20 @@ for (const [name, varName] of Object.entries(tokenVars)) {
   lines.push('');
 }
 
+// ── stdio 서버 env var 입력 (선택된 서버에만) ────────────────────────────────
+for (const [name, vars] of Object.entries(envVars)) {
+  for (const key of Object.keys(vars)) {
+    lines.push(`# ── ${name} ${key} 입력 (선택된 경우에만)`);
+    lines.push(`if should_install "${name}"; then`);
+    lines.push(`  if [ -z "\${${key}}" ]; then`);
+    lines.push(`    read -rsp "${name} ${key} 입력 (화면에 표시 안 됨): " ${key}; echo ""`);
+    lines.push(`  fi`);
+    lines.push(`  [ -z "\${${key}}" ] && error "${name} ${key}가 입력되지 않았습니다."`);
+    lines.push(`fi`);
+    lines.push('');
+  }
+}
+
 // ── SCOPE 설정 ───────────────────────────────────────────────────────────────
 lines.push('SCOPE="${SCOPE:-local}"');
 lines.push('[[ "$SCOPE" =~ ^(local|user|project)$ ]] || error "SCOPE는 local, user, project 중 하나여야 합니다."');
@@ -215,7 +241,7 @@ lines.push('  # 지정 SCOPE에서 먼저 제거 시도 (없어도 무시 — gr
 lines.push('  if claude mcp remove "$name" -s "$SCOPE" &>/dev/null; then');
 lines.push('    info "기존 설정 제거: $name (${SCOPE})"');
 lines.push('  fi');
-lines.push('  claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"');
+lines.push('  claude mcp add --scope "$SCOPE" "$@" && info "추가 완료: $name"');
 lines.push('}');
 lines.push('');
 
@@ -234,11 +260,19 @@ for (const [name, cfg] of Object.entries(merged)) {
     addArgs.push('--transport http');
     addArgs.push(`"${shellEscape(cfg.url)}"`);
   } else if (cfg.command) {
+    // env var가 있는 stdio 서버는 -e 옵션 + -- 구분자 추가
+    const serverEnvVars = envVars[name];
+    if (serverEnvVars && Object.keys(serverEnvVars).length > 0) {
+      for (const key of Object.keys(serverEnvVars)) {
+        addArgs.push(`-e "${key}=\${${key}}"`);
+      }
+      addArgs.push('--');
+    }
     const cmdArgs = (cfg.args || []).map(a => {
       const resolved = resolveNpxVersion(a);
       return `"${shellEscape(resolved)}"`;
     }).join(' ');
-    addArgs.push(`"${shellEscape(cfg.command)}" ${cmdArgs}`.trim());
+    addArgs.push(`"${shellEscape(cfg.command)}"${cmdArgs ? ' ' + cmdArgs : ''}`);
   }
 
   if (cfg.headers) {

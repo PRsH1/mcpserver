@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP Server Setup Script
 # 자동 생성됨 - 업데이트: node generate-mcp-setup.js
-# 생성 시각: 2026. 4. 7. 오전 12:01:37
+# 생성 시각: 2026. 4. 7. 오전 12:25:20
 
 set -e
 
@@ -13,14 +13,16 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 command -v claude &>/dev/null || error "claude CLI가 설치되어 있지 않습니다. https://claude.ai/code"
 info "Claude Code 버전: $(claude --version 2>/dev/null || echo '확인 불가')"
 
-ALL_SERVERS=("context7" "notion" "github" "chrome-devtools")
+ALL_SERVERS=("context7" "notion" "github" "chrome-devtools" "filesystem" "brave-search")
 
 echo ""
 echo "사용 가능한 MCP 서버:"
 echo "  [1] context7             HTTP  [user]  "
 echo "  [2] notion               HTTP  [user]  "
-echo "  [3] github               HTTP  [user]   (토큰 필요)"
+echo "  [3] github               HTTP  [user]   (키 필요)"
 echo "  [4] chrome-devtools      stdio [user]  "
+echo "  [5] filesystem           stdio [user]  "
+echo "  [6] brave-search         stdio [user]   (키 필요)"
 echo ""
 
 # 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택
@@ -78,6 +80,14 @@ if should_install "github"; then
   [ -z "${GITHUB_TOKEN}" ] && error "github Token이 입력되지 않았습니다."
 fi
 
+# ── brave-search BRAVE_API_KEY 입력 (선택된 경우에만)
+if should_install "brave-search"; then
+  if [ -z "${BRAVE_API_KEY}" ]; then
+    read -rsp "brave-search BRAVE_API_KEY 입력 (화면에 표시 안 됨): " BRAVE_API_KEY; echo ""
+  fi
+  [ -z "${BRAVE_API_KEY}" ] && error "brave-search BRAVE_API_KEY가 입력되지 않았습니다."
+fi
+
 SCOPE="${SCOPE:-local}"
 [[ "$SCOPE" =~ ^(local|user|project)$ ]] || error "SCOPE는 local, user, project 중 하나여야 합니다."
 info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user bash setup-mcp.sh)"
@@ -88,7 +98,7 @@ add_mcp() {
   if claude mcp remove "$name" -s "$SCOPE" &>/dev/null; then
     info "기존 설정 제거: $name (${SCOPE})"
   fi
-  claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"
+  claude mcp add --scope "$SCOPE" "$@" && info "추가 완료: $name"
 }
 
 FAILED=()
@@ -124,6 +134,22 @@ if should_install "chrome-devtools"; then
   add_mcp "chrome-devtools" "chrome-devtools" \
     "npx" "chrome-devtools-mcp@0.21.0" \
     || { warn "chrome-devtools 설치 실패"; FAILED+=("chrome-devtools"); }
+fi
+
+# ── filesystem [원본 scope: user]
+if should_install "filesystem"; then
+  add_mcp "filesystem" "filesystem" \
+    "npx" "-y" "@modelcontextprotocol/server-filesystem" "C:/Users/LSH" "D:/Workspace" "D:/" \
+    || { warn "filesystem 설치 실패"; FAILED+=("filesystem"); }
+fi
+
+# ── brave-search [원본 scope: user]
+if should_install "brave-search"; then
+  add_mcp "brave-search" "brave-search" \
+    -e "BRAVE_API_KEY=${BRAVE_API_KEY}" \
+    -- \
+    "npx" "-y" "@modelcontextprotocol/server-brave-search" \
+    || { warn "brave-search 설치 실패"; FAILED+=("brave-search"); }
 fi
 
 echo ""

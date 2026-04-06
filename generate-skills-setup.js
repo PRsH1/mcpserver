@@ -83,7 +83,7 @@ lines.push('');
 lines.push(`ALL_SKILLS=(${skills.map(s => `"${s.name}"`).join(' ')})`);
 lines.push('');
 
-// ── 스킬 목록 출력 + 선택 UI ─────────────────────────────────────────────────
+// ── 스킬 목록 출력 ────────────────────────────────────────────────────────────
 lines.push('echo ""');
 lines.push('echo "사용 가능한 Skills:"');
 skills.forEach(({ name, remoteUrl, hasSetup }, i) => {
@@ -95,6 +95,7 @@ skills.forEach(({ name, remoteUrl, hasSetup }, i) => {
 lines.push('echo ""');
 lines.push('');
 
+// ── 인자 파싱 / 대화형 선택 ──────────────────────────────────────────────────
 lines.push('# 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택');
 lines.push('if [ $# -gt 0 ]; then');
 lines.push('  if [ "$1" = "all" ]; then');
@@ -122,7 +123,17 @@ lines.push('  fi');
 lines.push('fi');
 lines.push('');
 
-lines.push('[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "설치할 스킬이 선택되지 않았습니다."');
+// ── INSTALL_LIST 유효성 검증 (잘못된 이름 경고 및 필터링) ────────────────────
+lines.push('# 유효하지 않은 이름 경고 및 필터링');
+lines.push('_VALID=()');
+lines.push('for _item in "${INSTALL_LIST[@]}"; do');
+lines.push('  _found=false');
+lines.push('  for _s in "${ALL_SKILLS[@]}"; do [ "$_item" = "$_s" ] && _found=true && break; done');
+lines.push("  if $_found; then _VALID+=(\"$_item\");");
+lines.push("  else warn \"알 수 없는 스킬: '$_item' (무시됨)\"; fi");
+lines.push('done');
+lines.push('INSTALL_LIST=("${_VALID[@]}"); unset _VALID _item _found _s');
+lines.push('[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "유효한 스킬이 선택되지 않았습니다."');
 lines.push('info "설치 대상: ${INSTALL_LIST[*]}"');
 lines.push('echo ""');
 lines.push('');
@@ -139,33 +150,49 @@ lines.push('');
 
 lines.push('SKILLS_DIR="$HOME/.claude/skills"');
 lines.push('mkdir -p "$SKILLS_DIR"');
+lines.push('');
+
+// ── 실패 추적 배열 ────────────────────────────────────────────────────────────
+lines.push('FAILED=()');
 lines.push('info "Skills 설치를 시작합니다..."');
 lines.push('');
 
-// ── 스킬별 설치 (should_install 조건부) ──────────────────────────────────────
+// ── 스킬별 설치 (should_install 조건부, 실패 추적) ───────────────────────────
 for (const { name, remoteUrl, hasSetup } of skills) {
   lines.push(`# ── ${name}`);
   lines.push(`if should_install "${name}"; then`);
   lines.push(`  SKILL_DIR="$SKILLS_DIR/${name}"`);
+  lines.push(`  _skill_ok=true`);
   lines.push(`  if [ -d "$SKILL_DIR/.git" ]; then`);
   lines.push(`    info "${name}: 이미 설치됨 → 최신 버전으로 업데이트 중..."`);
   lines.push(`    git -C "$SKILL_DIR" pull --rebase --autostash 2>/dev/null \\`);
   lines.push(`      || warn "${name}: git pull 실패 (기존 버전 유지)"`);
   lines.push(`  else`);
   lines.push(`    info "${name}: 클론 중... (${remoteUrl})"`);
-  lines.push(`    git clone --single-branch --depth 1 "${remoteUrl}" "$SKILL_DIR"`);
+  lines.push(`    git clone --single-branch --depth 1 "${remoteUrl}" "$SKILL_DIR" \\`);
+  lines.push(`      || { warn "${name}: git clone 실패"; _skill_ok=false; FAILED+=("${name}"); }`);
   lines.push(`  fi`);
   if (hasSetup) {
-    lines.push(`  info "${name}: setup 실행 중..."`);
-    lines.push(`  (cd "$SKILL_DIR" && ./setup) || error "${name} setup 실패"`);
+    lines.push(`  if $_skill_ok; then`);
+    lines.push(`    info "${name}: setup 실행 중..."`);
+    lines.push(`    (cd "$SKILL_DIR" && ./setup) \\`);
+    lines.push(`      || { warn "${name}: setup 실패"; FAILED+=("${name}"); }`);
+    lines.push(`  fi`);
   }
   lines.push('fi');
   lines.push('');
 }
 
+// ── 결과 출력 ─────────────────────────────────────────────────────────────────
 lines.push('echo ""');
-lines.push('info "설치 완료! 설치된 Skills (루트 스킬만):"');
+lines.push('info "설치된 Skills (루트 스킬만):"');
 lines.push('for d in "$SKILLS_DIR"/*/; do [ -d "$d/.git" ] && echo "  $(basename "$d")"; done');
+lines.push('');
+lines.push('if [ "${#FAILED[@]}" -gt 0 ]; then');
+lines.push('  warn "설치 실패한 스킬 (${#FAILED[@]}개): ${FAILED[*]}"');
+lines.push('else');
+lines.push('  info "모든 스킬이 성공적으로 설치되었습니다."');
+lines.push('fi');
 
 // ── 파일 저장 ────────────────────────────────────────────────────────────────
 const outputPath = path.join(__dirname, 'setup-skills.sh');

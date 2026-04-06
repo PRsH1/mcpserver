@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Skills Setup Script
 # 자동 생성됨 - 업데이트: node generate-skills-setup.js
-# 생성 시각: 2026. 3. 28. 오전 1:39:44
+# 생성 시각: 2026. 4. 7. 오전 12:01:38
 
 set -e
 
@@ -12,11 +12,12 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 command -v git &>/dev/null || error "git이 설치되어 있지 않습니다."
 
-ALL_SKILLS=("gstack")
+ALL_SKILLS=(".gstack-backup-1774707637" "gstack")
 
 echo ""
 echo "사용 가능한 Skills:"
-echo "  [1] gstack           github:garrytan/gstack.git (setup 있음)"
+echo "  [1] .gstack-backup-1774707637 github:garrytan/gstack.git (setup 있음)"
+echo "  [2] gstack           github:garrytan/gstack.git (setup 있음)"
 echo ""
 
 # 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택
@@ -45,7 +46,16 @@ else
   fi
 fi
 
-[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "설치할 스킬이 선택되지 않았습니다."
+# 유효하지 않은 이름 경고 및 필터링
+_VALID=()
+for _item in "${INSTALL_LIST[@]}"; do
+  _found=false
+  for _s in "${ALL_SKILLS[@]}"; do [ "$_item" = "$_s" ] && _found=true && break; done
+  if $_found; then _VALID+=("$_item");
+  else warn "알 수 없는 스킬: '$_item' (무시됨)"; fi
+done
+INSTALL_LIST=("${_VALID[@]}"); unset _VALID _item _found _s
+[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "유효한 스킬이 선택되지 않았습니다."
 info "설치 대상: ${INSTALL_LIST[*]}"
 echo ""
 
@@ -59,23 +69,56 @@ should_install() {
 
 SKILLS_DIR="$HOME/.claude/skills"
 mkdir -p "$SKILLS_DIR"
+
+FAILED=()
 info "Skills 설치를 시작합니다..."
+
+# ── .gstack-backup-1774707637
+if should_install ".gstack-backup-1774707637"; then
+  SKILL_DIR="$SKILLS_DIR/.gstack-backup-1774707637"
+  _skill_ok=true
+  if [ -d "$SKILL_DIR/.git" ]; then
+    info ".gstack-backup-1774707637: 이미 설치됨 → 최신 버전으로 업데이트 중..."
+    git -C "$SKILL_DIR" pull --rebase --autostash 2>/dev/null \
+      || warn ".gstack-backup-1774707637: git pull 실패 (기존 버전 유지)"
+  else
+    info ".gstack-backup-1774707637: 클론 중... (https://github.com/garrytan/gstack.git)"
+    git clone --single-branch --depth 1 "https://github.com/garrytan/gstack.git" "$SKILL_DIR" \
+      || { warn ".gstack-backup-1774707637: git clone 실패"; _skill_ok=false; FAILED+=(".gstack-backup-1774707637"); }
+  fi
+  if $_skill_ok; then
+    info ".gstack-backup-1774707637: setup 실행 중..."
+    (cd "$SKILL_DIR" && ./setup) \
+      || { warn ".gstack-backup-1774707637: setup 실패"; FAILED+=(".gstack-backup-1774707637"); }
+  fi
+fi
 
 # ── gstack
 if should_install "gstack"; then
   SKILL_DIR="$SKILLS_DIR/gstack"
+  _skill_ok=true
   if [ -d "$SKILL_DIR/.git" ]; then
     info "gstack: 이미 설치됨 → 최신 버전으로 업데이트 중..."
     git -C "$SKILL_DIR" pull --rebase --autostash 2>/dev/null \
       || warn "gstack: git pull 실패 (기존 버전 유지)"
   else
     info "gstack: 클론 중... (https://github.com/garrytan/gstack.git)"
-    git clone --single-branch --depth 1 "https://github.com/garrytan/gstack.git" "$SKILL_DIR"
+    git clone --single-branch --depth 1 "https://github.com/garrytan/gstack.git" "$SKILL_DIR" \
+      || { warn "gstack: git clone 실패"; _skill_ok=false; FAILED+=("gstack"); }
   fi
-  info "gstack: setup 실행 중..."
-  (cd "$SKILL_DIR" && ./setup) || error "gstack setup 실패"
+  if $_skill_ok; then
+    info "gstack: setup 실행 중..."
+    (cd "$SKILL_DIR" && ./setup) \
+      || { warn "gstack: setup 실패"; FAILED+=("gstack"); }
+  fi
 fi
 
 echo ""
-info "설치 완료! 설치된 Skills (루트 스킬만):"
+info "설치된 Skills (루트 스킬만):"
 for d in "$SKILLS_DIR"/*/; do [ -d "$d/.git" ] && echo "  $(basename "$d")"; done
+
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  warn "설치 실패한 스킬 (${#FAILED[@]}개): ${FAILED[*]}"
+else
+  info "모든 스킬이 성공적으로 설치되었습니다."
+fi

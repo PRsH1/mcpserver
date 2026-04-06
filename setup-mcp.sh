@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MCP Server Setup Script
 # 자동 생성됨 - 업데이트: node generate-mcp-setup.js
-# 생성 시각: 2026. 3. 28. 오전 1:39:44
+# 생성 시각: 2026. 4. 7. 오전 12:01:37
 
 set -e
 
@@ -17,10 +17,10 @@ ALL_SERVERS=("context7" "notion" "github" "chrome-devtools")
 
 echo ""
 echo "사용 가능한 MCP 서버:"
-echo "  [1] context7             HTTP "
-echo "  [2] notion               HTTP "
-echo "  [3] github               HTTP  (토큰 필요)"
-echo "  [4] chrome-devtools      stdio"
+echo "  [1] context7             HTTP  [user]  "
+echo "  [2] notion               HTTP  [user]  "
+echo "  [3] github               HTTP  [user]   (토큰 필요)"
+echo "  [4] chrome-devtools      stdio [user]  "
 echo ""
 
 # 인자로 이름/번호 전달 시 바로 사용, 없으면 대화형 선택
@@ -49,7 +49,16 @@ else
   fi
 fi
 
-[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "설치할 서버가 선택되지 않았습니다."
+# 유효하지 않은 이름 경고 및 필터링
+_VALID=()
+for _item in "${INSTALL_LIST[@]}"; do
+  _found=false
+  for _s in "${ALL_SERVERS[@]}"; do [ "$_item" = "$_s" ] && _found=true && break; done
+  if $_found; then _VALID+=("$_item");
+  else warn "알 수 없는 서버: '$_item' (무시됨)"; fi
+done
+INSTALL_LIST=("${_VALID[@]}"); unset _VALID _item _found _s
+[ "${#INSTALL_LIST[@]}" -eq 0 ] && error "유효한 서버가 선택되지 않았습니다."
 info "설치 대상: ${INSTALL_LIST[*]}"
 echo ""
 
@@ -75,38 +84,55 @@ info "적용 범위: ${SCOPE}  (전역 적용하려면: SCOPE=user bash setup-mc
 
 add_mcp() {
   local name="$1"; shift
-  # 지정한 SCOPE에 이미 존재하면 삭제 후 재등록 (설정 업데이트 보장)
-  if claude mcp get "$name" 2>/dev/null | grep -qi "scope.*${SCOPE}"; then
-    claude mcp remove "$name" -s "$SCOPE" &>/dev/null
+  # 지정 SCOPE에서 먼저 제거 시도 (없어도 무시 — grep 의존 제거)
+  if claude mcp remove "$name" -s "$SCOPE" &>/dev/null; then
     info "기존 설정 제거: $name (${SCOPE})"
   fi
   claude mcp add "$@" --scope "$SCOPE" && info "추가 완료: $name"
 }
 
+FAILED=()
 info "MCP 서버 추가를 시작합니다..."
 
-# ── context7
-should_install "context7" && add_mcp "context7" "context7" \
-  --transport http \
-  "https://mcp.context7.com/mcp"
+# ── context7 [원본 scope: user]
+if should_install "context7"; then
+  add_mcp "context7" "context7" \
+    --transport http \
+    "https://mcp.context7.com/mcp" \
+    || { warn "context7 설치 실패"; FAILED+=("context7"); }
+fi
 
-# ── notion
-should_install "notion" && add_mcp "notion" "notion" \
-  --transport http \
-  "https://mcp.notion.com/mcp"
+# ── notion [원본 scope: user]
+if should_install "notion"; then
+  add_mcp "notion" "notion" \
+    --transport http \
+    "https://mcp.notion.com/mcp" \
+    || { warn "notion 설치 실패"; FAILED+=("notion"); }
+fi
 
-# ── github
-should_install "github" && add_mcp "github" "github" \
-  --transport http \
-  "https://api.githubcopilot.com/mcp/" \
-  --header "Authorization: Bearer ${GITHUB_TOKEN}"
+# ── github [원본 scope: user]
+if should_install "github"; then
+  add_mcp "github" "github" \
+    --transport http \
+    "https://api.githubcopilot.com/mcp/" \
+    --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+    || { warn "github 설치 실패"; FAILED+=("github"); }
+fi
 
-# ── chrome-devtools
-should_install "chrome-devtools" && add_mcp "chrome-devtools" "chrome-devtools" \
-  "npx" "chrome-devtools-mcp@latest"
+# ── chrome-devtools [원본 scope: user]
+if should_install "chrome-devtools"; then
+  add_mcp "chrome-devtools" "chrome-devtools" \
+    "npx" "chrome-devtools-mcp@0.21.0" \
+    || { warn "chrome-devtools 설치 실패"; FAILED+=("chrome-devtools"); }
+fi
 
 echo ""
 info "설치된 MCP 서버 목록:"
 claude mcp list
 
-info "완료! claude.ai Gmail 등 OAuth 서버는 Claude Code 로그인 후 자동 연결됩니다."
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  warn "설치 실패한 서버 (${#FAILED[@]}개): ${FAILED[*]}"
+else
+  info "모든 서버가 성공적으로 설치되었습니다."
+fi
+info "claude.ai Gmail 등 OAuth 서버는 Claude Code 로그인 후 자동 연결됩니다."

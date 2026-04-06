@@ -148,7 +148,8 @@ MCP와 동일한 방식으로 선택할 수 있습니다.
 | github | HTTP | GitHub PAT 필요 | 이슈·PR·코드 검색 |
 | chrome-devtools | stdio | 불필요 (npx 자동 설치) | 브라우저 자동화·디버깅 |
 | filesystem | stdio | 불필요 | 로컬 파일 읽기/쓰기 |
-| brave-search | stdio | Brave API Key 필요 | 웹 검색 |
+| brave-search | stdio | Brave API Key 필요 | 웹 검색 (유료, $5/1000건) |
+| tavily | stdio | Tavily API Key 필요 | 웹 검색 AI 최적화 (100회/월 무료) |
 | claude.ai Gmail | HTTP | Claude.ai 계정 연동 (자동) | Gmail 읽기/쓰기 |
 
 > **claude.ai Gmail** 은 Claude.ai 계정 OAuth로 연동됩니다.
@@ -168,8 +169,16 @@ MCP와 동일한 방식으로 선택할 수 있습니다.
 
 ### Brave Search API Key 발급 방법
 
+> **참고:** Brave Search는 2026년 2월 무료 티어를 폐지했습니다. 신규 사용자는 월 $5 크레딧(약 1,000회) 제공 후 과금됩니다.
+
 1. [https://brave.com/search/api](https://brave.com/search/api) 접속
-2. 무료 플랜으로 가입 (2,000 queries/월 무료)
+2. 가입 후 API Key 발급
+3. 스크립트 실행 시 입력
+
+### Tavily API Key 발급 방법
+
+1. [https://app.tavily.com](https://app.tavily.com) 접속
+2. 무료 플랜으로 가입 (100회/월 무료, AI 최적화 검색 결과)
 3. API Key 발급 후 스크립트 실행 시 입력
 
 ---
